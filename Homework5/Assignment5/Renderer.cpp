@@ -34,7 +34,7 @@ Vector3f refract(const Vector3f &I, const Vector3f &N, const float &ior)
     if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -N; }
     float eta = etai / etat;
     float k = 1 - eta * eta * (1 - cosi * cosi);
-    return k < 0 ? 0 : eta * I + (eta * cosi - sqrtf(k)) * n;
+    return k < 0 ? 0 : eta * I + (eta * cosi - sqrtf(k)) * n; // 求得代表折射光线的向量
 }
 
 // [comment]
@@ -213,24 +213,31 @@ void Renderer::Render(const Scene& scene)
     std::vector<Vector3f> framebuffer(scene.width * scene.height);
 
     float scale = std::tan(deg2rad(scene.fov * 0.5f));
-    float imageAspectRatio = scene.width / (float)scene.height;
+    float width = scene.width, height = scene.height;
+    float imageAspectRatio = width / height;
 
     // Use this variable as the eye position to start your rays.
     Vector3f eye_pos(0);
     int m = 0;
-    for (int j = 0; j < scene.height; ++j)
+    for (int j = 0; j < height; ++j)
     {
-        for (int i = 0; i < scene.width; ++i)
+        for (int i = 0; i < width; ++i)
         {
             // generate primary ray direction
-            float x;
-            float y;
+            
             // TODO: Find the x and y positions of the current pixel to get the direction
             // vector that passes through it.
             // Also, don't forget to multiply both of them with the variable *scale*, and
-            // x (horizontal) variable with the *imageAspectRatio*            
+            // x (horizontal) variable with the *imageAspectRatio*
 
-            Vector3f dir = Vector3f(x, y, -1); // Don't forget to normalize this direction!
+            // 考虑如何把屏幕坐标映射到空间坐标
+            // 1. 获取像素中心坐标，按比例缩放为【-1，1】的平面坐标
+            // 2. 利用宽高比水平拉伸
+            // 3. 利用俯仰角拉伸
+            float x = (2*(i+0.5)/width-1) * imageAspectRatio * scale;
+            float y = (1-2*(j+0.5)/height) * scale;
+
+            Vector3f dir = normalize(Vector3f(x, y, -1)); // Don't forget to normalize this direction!
             framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
         }
         UpdateProgress(j / (float)scene.height);
@@ -241,9 +248,9 @@ void Renderer::Render(const Scene& scene)
     (void)fprintf(fp, "P6\n%d %d\n255\n", scene.width, scene.height);
     for (auto i = 0; i < scene.height * scene.width; ++i) {
         static unsigned char color[3];
-        color[0] = (char)(255 * clamp(0, 1, framebuffer[i].x));
-        color[1] = (char)(255 * clamp(0, 1, framebuffer[i].y));
-        color[2] = (char)(255 * clamp(0, 1, framebuffer[i].z));
+        color[0] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].x));
+        color[1] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].y));
+        color[2] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].z));
         fwrite(color, 1, 3, fp);
     }
     fclose(fp);    

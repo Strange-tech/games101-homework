@@ -260,3 +260,41 @@ void bezier(const std::vector<cv::Point2f> &control_points, cv::Mat &window) {
 You can simply use `window.at<cv::Vec3b>(point.y, point.x)[1] = 255` to draw a bezier curve with aliasing. And by iterating 9 adjacent pixels (shown in the code) you can implement anti-aliasing.
 
 Be aware of the difference among SSAA, MSAA and this method!
+
+## Assignment5
+
+CMakeLists.txt keeps the same as the default.
+
+### core code
+
+在光栅化一节，我们用 正交/透视 投影矩阵把三维空间中的物体映射到屏幕的像素中。但在光线追踪一节，我们要用全新的视角看待这个问题。
+
+光线总是从原点发射，打到近平面（也就是屏幕）上。因此，屏幕上经过每个像素点的光线都是向外扩散而非平行的，众多光线组成的轮廓就是视锥体。所以只要定义好每个像素对应的光线向量，就完成了透视投影，无需推导复杂的投影矩阵。
+
+那有没有可能完成正交投影的光线追踪呢？目前代码框架应该是不行的，因为规定了光源的坐标是原点。
+
+```C++
+// 考虑如何把屏幕坐标映射到空间坐标
+// 1. 获取像素中心坐标，按比例缩放为【-1，1】的平面坐标
+// 2. 利用宽高比水平拉伸
+// 3. 利用俯仰角同步拉伸x，y
+float x = (2*(i+0.5)/width-1) * imageAspectRatio * scale;
+float y = (1-2*(j+0.5)/height) * scale;
+
+Vector3f dir = normalize(Vector3f(x, y, -1)); // Don't forget to normalize this direction!
+framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
+```
+
+Moller Trumbore algorithm:
+
+```C++
+Vector3f E1 = v1 - v0;
+Vector3f E2 = v2 - v0;
+Vector3f S = orig - v0;
+Vector3f S1 = crossProduct(dir, E2);
+Vector3f S2 = crossProduct(S, E1);
+Vector3f res = 1.0/dotProduct(S1, E1) * Vector3f(dotProduct(S2, E2), dotProduct(S1, S), dotProduct(S2, dir));
+tnear = res.x; u = res.y; v = res.z;
+```
+
+注意：u v 正是三角重心坐标公式中的系数 b1 b2。第三项系数 `b3 = 1 - b1 - b2` 可以由前两者得到，这也阐明了 二维空间中的贴图坐标 到 三维空间坐标 的转换原理。
