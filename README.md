@@ -4,9 +4,9 @@ Environment: MacOS 13.3
 
 Related software and libraries (use the latest version)
 
-- homebrew (to install gcc, eigen, opencv and cmake)
+- homebrew (to install g++, eigen, opencv and cmake)
 - lib: eigen, opencv
-- compiler: cmake, gcc
+- compiler: cmake, g++/clang++
 - code editor: sublime text
 
 Notes (not mine): <a href="https://www.zhihu.com/column/c_1249465121615204352">计算机图形学系列笔记</a>
