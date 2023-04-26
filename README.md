@@ -298,3 +298,94 @@ tnear = res.x; u = res.y; v = res.z;
 ```
 
 注意：u v 正是三角重心坐标公式中的系数 b1 b2。第三项系数 `b3 = 1 - b1 - b2` 可以由前两者得到，这也阐明了 二维空间中的贴图坐标 到 三维空间坐标 的转换原理。
+
+## Assignment6
+
+CMakeLists.txt keeps the same as the default.
+
+### core code
+
+update code in `render()` of render.cpp:
+
+```C++
+// generate primary ray direction
+float x = (2 * (i + 0.5) / (float)scene.width - 1) *
+            imageAspectRatio * scale;
+float y = (1 - 2 * (j + 0.5) / (float)scene.height) * scale;
+// TODO: Find the x and y positions of the current pixel to get the
+// direction
+//  vector that passes through it.
+// Also, don't forget to multiply both of them with the variable
+// *scale*, and x (horizontal) variable with the *imageAspectRatio*
+
+// Don't forget to normalize this direction!
+Vector3f dir = normalize(Vector3f(x, y, -1));
+Ray ray(eye_pos, dir);
+framebuffer[m++] = scene.castRay(ray, 0);
+```
+
+update code in `Triangle::getIntersection` in Triangle.hpp:
+
+```C++
+inter.happened = true;
+inter.coords = ray.origin + t_tmp * ray.direction;
+inter.normal = normal;
+inter.distance = t_tmp;
+inter.obj = this;
+inter.m = this->m;
+```
+
+check if the boundingbox intersects with ray:
+
+```C++
+// invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster that Division
+// dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x>0),int(y>0),int(z>0)], use this to simplify your logic
+// TODO test if ray bound intersects
+float t_xy_near = (pMax.z - ray.origin.z) * invDir.z;
+float t_xy_far = (pMin.z - ray.origin.z) * invDir.z;
+if(t_xy_near > t_xy_far) std::swap(t_xy_near,t_xy_far);
+
+float t_xz_near = (pMax.y - ray.origin.y) * invDir.y;
+float t_xz_far = (pMin.y - ray.origin.y) * invDir.y;
+if(t_xz_near > t_xz_far) std::swap(t_xz_near,t_xz_far);
+
+float t_yz_near = (pMax.x - ray.origin.x) * invDir.x;
+float t_yz_far = (pMin.x - ray.origin.x) * invDir.x;
+if(t_yz_near > t_yz_far) std::swap(t_yz_near,t_yz_far);
+
+// 取交集
+float t_enter = std::max(t_yz_near, std::max(t_xy_near, t_xz_near));
+float t_exit = std::min(t_yz_far, std::min(t_xy_far, t_xz_far));
+
+return (t_enter < t_exit && t_exit >= 0);
+```
+
+traverse the binary tree to get intersection:
+
+```C++
+Intersection BVHAccel::getIntersection(BVHBuildNode* node, const Ray& ray) const
+{
+    // TODO Traverse the BVH to find intersection
+
+    float x = ray.direction.x, y = ray.direction.y, z = ray.direction.z;
+    std::array<int, 3> dirIsNeg = {int(x>0), int(y>0), int(z>0)};
+
+    if(node->bounds.IntersectP(ray, ray.direction_inv, dirIsNeg)) {
+        // leaf node
+        if(node->left == nullptr)
+            return node->object->getIntersection(ray);
+
+        Intersection inter_left = getIntersection(node->left, ray);
+        Intersection inter_right = getIntersection(node->right, ray);
+
+        if(inter_left.distance < inter_right.distance) return inter_left;
+        return inter_right;
+    }
+    else {
+        Intersection inter;
+        return inter; // 返回空的交集
+    }
+}
+```
+
+注意：分支节点的左右孩子都有可能与光线相交，但实际的交点应位于距离较近的那个孩子。
